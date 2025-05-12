@@ -1,17 +1,37 @@
-"""Exception classes for the sandbox system.
+"""沙箱系统的异常类定义。
 
-This module defines custom exceptions used throughout the sandbox system to
-handle various error conditions in a structured way.
+该模块定义了沙箱系统中使用的自定义异常类，用于以结构化的方式处理各种错误情况。
+这些异常类提供了清晰的错误分类，使得调用代码可以根据不同类型的错误进行适当的处理。
+
+所有沙箱系统的异常都继承自基础的SandboxError类，便于统一捕获和处理。
 """
 
 
 class SandboxError(Exception):
-    """Base exception for sandbox-related errors."""
+    """沙箱相关错误的基础异常类。
+    
+    这是所有沙箱系统特定异常的父类。它继承自标准的Exception类，
+    并且不提供任何额外的功能，仅用于分类和标识沙箱相关的错误。
+    
+    使用这个异常类可以通过 'except SandboxError:' 语句来捕获所有沙箱相关的异常。
+    """
 
 
 class SandboxTimeoutError(SandboxError):
-    """Exception raised when a sandbox operation times out."""
+    """当沙箱操作超时时抛出的异常。
+    
+    这个异常在沙箱中执行的操作（如命令执行）超过指定的时间限制时抛出。
+    超时通常表示命令可能卡住、无限循环或者需要比预期更长的时间来完成。
+    
+    当捕获到这个异常时，调用代码应该考虑中止相关的操作或提供错误反馈。
+    """
 
 
 class SandboxResourceError(SandboxError):
-    """Exception raised for resource-related errors."""
+    """与资源相关的错误异常。
+    
+    这个异常在沙箱资源管理过程中出现问题时抛出，例如资源限制被超过（内存、CPU、
+    磁盘空间等）、无法分配资源、资源冲突或其他资源管理问题。
+    
+    当捕获到这个异常时，调用代码可能需要考虑释放未使用的资源、减少资源需求或等待资源可用。
+    """

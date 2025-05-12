@@ -1,59 +1,87 @@
+"""
+数据可视化工具模块
+
+这个模块提供了DataVisualization工具类，用于生成统计图表和图表洞见分析。
+它可以基于预先准备的JSON数据创建交互式图表（HTML）或静态图表（PNG），
+并可选择性地添加数据洞见分析。该工具支持中文和英文输出。
+"""
+
 import asyncio
 import json
 import os
 from typing import Any, Hashable
 
-import pandas as pd
+import pandas as pd  # 用于处理表格数据
 from pydantic import Field, model_validator
 
-from app.config import config
-from app.llm import LLM
-from app.logger import logger
-from app.tool.base import BaseTool
+from app.config import config  # 应用配置
+from app.llm import LLM  # 语言模型接口
+from app.logger import logger  # 日志模块
+from app.tool.base import BaseTool  # 基础工具类
 
 
 class DataVisualization(BaseTool):
+    """
+    数据可视化工具类，用于生成统计图表和图表洞见分析。
+    
+    这个类实现了BaseTool接口，提供了基于预先准备的JSON数据生成交互式或静态图表的功能。
+    它可以生成各种类型的数据可视化图表，包括折线图、柱状图、饼图等，并可选择性地添加数据洞见分析。
+    这个工具使用语言模型来生成图表洞见，并支持中文和英文输出。
+    """
+    # 工具名称
     name: str = "data_visualization"
-    description: str = """Visualize statistical chart or Add insights in chart with JSON info from visualization_preparation tool. You can do steps as follows:
-1. Visualize statistical chart
-2. Choose insights into chart based on step 1 (Optional)
-Outputs:
-1. Charts (png/html)
-2. Charts Insights (.md)(Optional)"""
+    # 工具描述，用于向语言模型提供工具功能介绍
+    description: str = """使用来自visualization_preparation工具的JSON信息可视化统计图表或添加图表洞见。您可以按照以下步骤操作：
+1. 可视化统计图表
+2. 根据第1步选择图表洞见（可选）
+输出：
+1. 图表（png/html）
+2. 图表洞见（.md）（可选）"""
+    # 工具参数模式定义
     parameters: dict = {
         "type": "object",
         "properties": {
             "json_path": {
                 "type": "string",
-                "description": """file path of json info with ".json" in the end""",
+                "description": """以".json"结尾的json信息文件路径""",
             },
             "output_type": {
-                "description": "Rendering format (html=interactive)",
+                "description": "渲染格式（html=交互式）",
                 "type": "string",
                 "default": "html",
-                "enum": ["png", "html"],
+                "enum": ["png", "html"],  # png为静态图片，html为交互式图表
             },
             "tool_type": {
-                "description": "visualize chart or add insights",
+                "description": "可视化图表或添加洞见",
                 "type": "string",
                 "default": "visualization",
-                "enum": ["visualization", "insight"],
+                "enum": ["visualization", "insight"],  # visualization为只生成图表，insight为生成图表洞见
             },
             "language": {
-                "description": "english(en) / chinese(zh)",
+                "description": "英语(en) / 中文(zh)",
                 "type": "string",
                 "default": "en",
-                "enum": ["zh", "en"],
+                "enum": ["zh", "en"],  # 设置输出语言
             },
         },
-        "required": ["code"],
+        "required": ["code"],  # 必需参数
     }
-    llm: LLM = Field(default_factory=LLM, description="Language model instance")
+    # 语言模型实例，用于生成图表洞见
+    llm: LLM = Field(default_factory=LLM, description="语言模型实例")
 
     @model_validator(mode="after")
     def initialize_llm(self):
-        """Initialize llm with default settings if not provided."""
+        """如果未提供语言模型实例，则使用默认设置初始化语言模型。
+        
+        这个方法在类初始化后执行，用于确保语言模型实例存在并有效。
+        如果没有提供语言模型或提供的不是LLM类型，则创建一个新的LLM实例。
+        
+        返回:
+            self: 更新后的当前对象实例
+        """
+        # 如果没有语言模型或语言模型类型不正确，创建新的LLM实例
         if self.llm is None or not isinstance(self.llm, LLM):
+            # 使用当前工具名称作为配置名称初始化LLM
             self.llm = LLM(config_name=self.name.lower())
         return self
 
@@ -63,18 +91,40 @@ Outputs:
         path_str: str,
         directory: str = None,
     ) -> list[str]:
+        """获取完整的文件路径列表。
+        
+        这个方法从提供的JSON信息中提取文件路径，并检查这些路径是否存在。
+        如果提供的是相对路径，则会尝试将其与工作空间根目录或指定目录组合。
+        
+        参数:
+            json_info: 包含文件路径信息的字典列表
+            path_str: 字典中表示文件路径的键名
+            directory: 可选的目录前缀，用于解析相对路径
+            
+        返回:
+            有效文件路径的列表
+            
+        异常:
+            Exception: 如果文件或目录不存在
+        """
+        # 初始化结果列表
         res = []
+        # 遍历JSON信息中的每个项
         for item in json_info:
+            # 检查原始路径是否存在
             if os.path.exists(item[path_str]):
                 res.append(item[path_str])
+            # 如果原始路径不存在，尝试与工作空间根目录或指定目录组合
             elif os.path.exists(
                 os.path.join(f"{directory or config.workspace_root}", item[path_str])
             ):
+                # 将组合后的完整路径添加到结果列表
                 res.append(
                     os.path.join(
                         f"{directory or config.workspace_root}", item[path_str]
                     )
                 )
+            # 如果文件或目录不存在，抛出异常
             else:
                 raise Exception(f"No such file or directory: {item[path_str]}")
         return res

@@ -1,4 +1,10 @@
 # tool/planning.py
+"""计划工具模块，用于创建和管理复杂任务的计划。
+
+该模块提供了一个工具，允许AI代理创建、更新和跟踪解决复杂任务的计划。
+它实现了一个简单的计划管理系统，包括计划创建、更新步骤和状态跟踪功能。
+"""
+
 from typing import Dict, List, Literal, Optional
 
 from app.exceptions import ToolError
@@ -6,68 +12,71 @@ from app.tool.base import BaseTool, ToolResult
 
 
 _PLANNING_TOOL_DESCRIPTION = """
-A planning tool that allows the agent to create and manage plans for solving complex tasks.
-The tool provides functionality for creating plans, updating plan steps, and tracking progress.
+一个允许代理创建和管理用于解决复杂任务的计划的工具。
+该工具提供了创建计划、更新计划步骤和跟踪进度的功能。
 """
 
 
 class PlanningTool(BaseTool):
     """
-    A planning tool that allows the agent to create and manage plans for solving complex tasks.
-    The tool provides functionality for creating plans, updating plan steps, and tracking progress.
+    一个允许代理创建和管理解决复杂任务计划的工具。
+    该工具提供了创建计划、更新计划步骤和跟踪进度的功能。
+    
+    它维护一个计划字典，可以存储多个命名计划，每个计划包含多个步骤和状态信息。
+    还支持设置活动计划，以简化对当前工作计划的操作。
     """
 
-    name: str = "planning"
-    description: str = _PLANNING_TOOL_DESCRIPTION
+    name: str = "planning"  # 工具名称
+    description: str = _PLANNING_TOOL_DESCRIPTION  # 工具描述
     parameters: dict = {
         "type": "object",
         "properties": {
             "command": {
-                "description": "The command to execute. Available commands: create, update, list, get, set_active, mark_step, delete.",
+                "description": "要执行的命令。可用命令：create, update, list, get, set_active, mark_step, delete。",
                 "enum": [
-                    "create",
-                    "update",
-                    "list",
-                    "get",
-                    "set_active",
-                    "mark_step",
-                    "delete",
+                    "create",    # 创建新计划
+                    "update",    # 更新现有计划
+                    "list",      # 列出所有计划
+                    "get",       # 获取特定计划
+                    "set_active", # 设置活动计划
+                    "mark_step",  # 标记计划步骤状态
+                    "delete",    # 删除计划
                 ],
                 "type": "string",
             },
             "plan_id": {
-                "description": "Unique identifier for the plan. Required for create, update, set_active, and delete commands. Optional for get and mark_step (uses active plan if not specified).",
+                "description": "计划的唯一标识符。对于create、update、set_active和delete命令是必需的。对于get和mark_step是可选的（如果未指定则使用活动计划）。",
                 "type": "string",
             },
             "title": {
-                "description": "Title for the plan. Required for create command, optional for update command.",
+                "description": "计划的标题。对于create命令是必需的，对于update命令是可选的。",
                 "type": "string",
             },
             "steps": {
-                "description": "List of plan steps. Required for create command, optional for update command.",
+                "description": "计划步骤列表。对于create命令是必需的，对于update命令是可选的。",
                 "type": "array",
                 "items": {"type": "string"},
             },
             "step_index": {
-                "description": "Index of the step to update (0-based). Required for mark_step command.",
+                "description": "要更新的步骤索引（0开始）。对于mark_step命令是必需的。",
                 "type": "integer",
             },
             "step_status": {
-                "description": "Status to set for a step. Used with mark_step command.",
-                "enum": ["not_started", "in_progress", "completed", "blocked"],
+                "description": "要为步骤设置的状态。与mark_step命令一起使用。",
+                "enum": ["not_started", "in_progress", "completed", "blocked"],  # 未开始、进行中、已完成、已阻塞
                 "type": "string",
             },
             "step_notes": {
-                "description": "Additional notes for a step. Optional for mark_step command.",
+                "description": "步骤的额外注释。对于mark_step命令是可选的。",
                 "type": "string",
             },
         },
-        "required": ["command"],
-        "additionalProperties": False,
+        "required": ["command"],  # 必需参数
+        "additionalProperties": False,  # 不允许额外参数
     }
 
-    plans: dict = {}  # Dictionary to store plans by plan_id
-    _current_plan_id: Optional[str] = None  # Track the current active plan
+    plans: dict = {}  # 存储计划的字典，以plan_id为键
+    _current_plan_id: Optional[str] = None  # 跟踪当前活动计划
 
     async def execute(
         self,
@@ -86,16 +95,16 @@ class PlanningTool(BaseTool):
         **kwargs,
     ):
         """
-        Execute the planning tool with the given command and parameters.
+        使用给定的命令和参数执行计划工具。
 
-        Parameters:
-        - command: The operation to perform
-        - plan_id: Unique identifier for the plan
-        - title: Title for the plan (used with create command)
-        - steps: List of steps for the plan (used with create command)
-        - step_index: Index of the step to update (used with mark_step command)
-        - step_status: Status to set for a step (used with mark_step command)
-        - step_notes: Additional notes for a step (used with mark_step command)
+        参数:
+        - command: 要执行的操作
+        - plan_id: 计划的唯一标识符
+        - title: 计划的标题（与create命令一起使用）
+        - steps: 计划的步骤列表（与create命令一起使用）
+        - step_index: 要更新的步骤的索引（与mark_step命令一起使用）
+        - step_status: 要为步骤设置的状态（与mark_step命令一起使用）
+        - step_notes: 步骤的额外注释（与mark_step命令一起使用）
         """
 
         if command == "create":
@@ -116,51 +125,6 @@ class PlanningTool(BaseTool):
             raise ToolError(
                 f"Unrecognized command: {command}. Allowed commands are: create, update, list, get, set_active, mark_step, delete"
             )
-
-    def _create_plan(
-        self, plan_id: Optional[str], title: Optional[str], steps: Optional[List[str]]
-    ) -> ToolResult:
-        """Create a new plan with the given ID, title, and steps."""
-        if not plan_id:
-            raise ToolError("Parameter `plan_id` is required for command: create")
-
-        if plan_id in self.plans:
-            raise ToolError(
-                f"A plan with ID '{plan_id}' already exists. Use 'update' to modify existing plans."
-            )
-
-        if not title:
-            raise ToolError("Parameter `title` is required for command: create")
-
-        if (
-            not steps
-            or not isinstance(steps, list)
-            or not all(isinstance(step, str) for step in steps)
-        ):
-            raise ToolError(
-                "Parameter `steps` must be a non-empty list of strings for command: create"
-            )
-
-        # Create a new plan with initialized step statuses
-        plan = {
-            "plan_id": plan_id,
-            "title": title,
-            "steps": steps,
-            "step_statuses": ["not_started"] * len(steps),
-            "step_notes": [""] * len(steps),
-        }
-
-        self.plans[plan_id] = plan
-        self._current_plan_id = plan_id  # Set as active plan
-
-        return ToolResult(
-            output=f"Plan created successfully with ID: {plan_id}\n\n{self._format_plan(plan)}"
-        )
-
-    def _update_plan(
-        self, plan_id: Optional[str], title: Optional[str], steps: Optional[List[str]]
-    ) -> ToolResult:
-        """Update an existing plan with new title or steps."""
         if not plan_id:
             raise ToolError("Parameter `plan_id` is required for command: update")
 

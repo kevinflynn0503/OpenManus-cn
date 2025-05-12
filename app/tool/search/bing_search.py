@@ -1,14 +1,24 @@
+"""
+Bing搜索引擎模块
+
+这个模块提供了BingSearchEngine类，实现了WebSearchEngine接口来使用Bing搜索引擎。
+不同于Google搜索实现，这个实现直接解析Bing的HTML搜索结果页面，并使用伪造的浏览器头信息
+来模拟正常的用户访问。这个实现支持分页获取结果，并且能够从搜索结果中提取标题、URL和描述。
+"""
+
 from typing import List, Optional, Tuple
 
-import requests
-from bs4 import BeautifulSoup
+import requests  # 用于发送HTTP请求
+from bs4 import BeautifulSoup  # 用于解析HTML
 
-from app.logger import logger
-from app.tool.search.base import SearchItem, WebSearchEngine
+from app.logger import logger  # 用于记录日志
+from app.tool.search.base import SearchItem, WebSearchEngine  # 导入搜索基础类
 
 
+# 搜索结果描述的最大长度，超过这个长度将会被截断
 ABSTRACT_MAX_LENGTH = 300
 
+# 用户代理字符串列表，用于伪造浏览器访问，降低被封禁的风险
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36",
     "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
@@ -22,56 +32,88 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080414 Firefox/2.0.0.13 Pogo/2.0.0.13.6866",
 ]
 
+# HTTP请求头信息，用于模拟正常的浏览器请求
 HEADERS = {
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": USER_AGENTS[0],
-    "Referer": "https://www.bing.com/",
-    "Accept-Encoding": "gzip, deflate",
-    "Accept-Language": "zh-CN,zh;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",  # 接受的内容类型
+    "Content-Type": "application/x-www-form-urlencoded",  # 内容类型
+    "User-Agent": USER_AGENTS[0],  # 用户代理字符串，使用第一个作为默认
+    "Referer": "https://www.bing.com/",  # 访问来源
+    "Accept-Encoding": "gzip, deflate",  # 接受的编码
+    "Accept-Language": "zh-CN,zh;q=0.9",  # 接受的语言
 }
 
-BING_HOST_URL = "https://www.bing.com"
-BING_SEARCH_URL = "https://www.bing.com/search?q="
+# Bing搜索的基础URL
+BING_HOST_URL = "https://www.bing.com"  # Bing主机域URL
+BING_SEARCH_URL = "https://www.bing.com/search?q="  # Bing搜索URL前缀，后面需要追加查询字符串
 
 
 class BingSearchEngine(WebSearchEngine):
+    """
+    Bing搜索引擎实现类。
+    
+    这个类继承自WebSearchEngine基类，实现了使用Bing搜索引擎执行搜索的功能。
+    它通过解析Bing的HTML搜索结果页面来获取搜索结果，并支持分页获取更多结果。
+    为了模拟正常的浏览器行为，该类使用请求会话并设置特定的HTTP头信息。
+    """
+    # 请求会话，用于维持连接并复用HTTP连接
     session: Optional[requests.Session] = None
 
     def __init__(self, **data):
-        """Initialize the BingSearch tool with a requests session."""
+        """使用requests会话初始化BingSearch工具。
+        
+        这个构造方法创建一个请求会话并设置适当的HTTP头信息，以模拟正常的浏览器行为。
+        这样可以降低被Bing识别为爬虫并被封禁的风险。
+        
+        参数:
+            **data: 传递给父类的额外参数
+        """
         super().__init__(**data)
+        # 创建新的请求会话
         self.session = requests.Session()
+        # 更新会话的头信息，使用预定义的HEADERS
         self.session.headers.update(HEADERS)
 
     def _search_sync(self, query: str, num_results: int = 10) -> List[SearchItem]:
         """
-        Synchronous Bing search implementation to retrieve search results.
+        同步实现Bing搜索并获取搜索结果。
+        
+        这个内部方法执行同步Bing搜索，并在需要时获取多页结果。它通过循环调用
+        _parse_html方法来解析搜索结果页面，直到获取足够的结果或者没有更多的结果页面。
 
-        Args:
-            query (str): The search query to submit to Bing.
-            num_results (int, optional): Maximum number of results to return. Defaults to 10.
+        参数:
+            query (str): 要提交给Bing的搜索查询。
+            num_results (int, optional): 要返回的最大结果数量。默认为10。
 
-        Returns:
-            List[SearchItem]: A list of search items with title, URL, and description.
+        返回:
+            List[SearchItem]: 包含标题、URL和描述的搜索结果项列表。
         """
+        # 检查查询是否为空，如果为空则返回空列表
         if not query:
             return []
 
+        # 初始化结果列表
         list_result = []
+        # 初始化第一页的索引参数
         first = 1
+        # 初始化搜索URL，连接基础URL和查询字符串
         next_url = BING_SEARCH_URL + query
 
+        # 循环获取结果，直到获得足够的结果数量
         while len(list_result) < num_results:
+            # 解析当前页面并获取数据及下一页URL
             data, next_url = self._parse_html(
                 next_url, rank_start=len(list_result), first=first
             )
+            # 如果有数据，添加到结果列表
             if data:
                 list_result.extend(data)
+            # 如果没有下一页URL，说明已经到达最后一页，退出循环
             if not next_url:
                 break
+            # 页面参数递增，每页结果数为10
             first += 10
 
+        # 返回指定数量的结果
         return list_result[:num_results]
 
     def _parse_html(
