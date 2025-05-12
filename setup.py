@@ -25,8 +25,8 @@ setup(
     packages=find_packages(),              # 自动查找所有包
     # 项目依赖列表，包含具体版本要求
     install_requires=[
-        "pydantic~=2.10.4",                # 数据验证库
-        "openai>=1.58.1,<1.67.0",           # OpenAI API客户端
+        "pydantic>=2.10.4,<2.12.0",                # 数据验证库
+        "openai>=1.58.1,<1.79.0",           # OpenAI API客户端
         "tenacity~=9.0.0",                 # 重试机制
         "pyyaml~=6.0.2",                   # YAML处理
         "loguru~=0.7.3",                   # 日志处理
@@ -41,7 +41,7 @@ setup(
         "browser-use~=0.1.40",             # 浏览器控制
         "googlesearch-python~=1.3.0",      # Google搜索工具
         "aiofiles~=24.1.0",                # 异步文件操作
-        "pydantic_core>=2.27.2,<2.28.0",    # Pydantic核心
+        "pydantic_core>=2.27.2,<2.35.0",    # Pydantic核心
         "colorama~=0.4.6",                  # 终端彩色输出
     ],
     # 项目分类标签，用于PyPI分类
