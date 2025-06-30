@@ -27,16 +27,16 @@ setup(
     install_requires=[
         "pydantic~=2.10.4",                # 数据验证库
         "openai>=1.58.1,<1.67.0",           # OpenAI API客户端
-        "tenacity~=9.0.0",                 # 重试机制
+        "tenacity>=9.0,<9.2",                 # 重试机制
         "pyyaml~=6.0.2",                   # YAML处理
         "loguru~=0.7.3",                   # 日志处理
         "numpy",                           # 数值计算
-        "datasets>=3.2,<3.5",              # 数据集管理
-        "html2text~=2024.2.26",            # HTML到文本转换
-        "gymnasium>=1.0,<1.2",             # 强化学习环境
-        "pillow>=10.4,<11.2",              # 图像处理
+        "datasets>=3.2,<3.7",              # 数据集管理
+        "html2text>=2024.2.26,<2025.5.0",            # HTML到文本转换
+        "gymnasium>=1.0,<1.3",             # 强化学习环境
+        "pillow>=10.4,<11.3",              # 图像处理
         "browsergym~=0.13.3",              # 浏览器环境
-        "uvicorn~=0.34.0",                 # ASGI服务器
+        "uvicorn>=0.34,<0.36",                 # ASGI服务器
         "unidiff~=0.7.5",                  # 差异处理
         "browser-use~=0.1.40",             # 浏览器控制
         "googlesearch-python~=1.3.0",      # Google搜索工具
